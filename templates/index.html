@@ -2,8 +2,17 @@
 <html>
 <head>
     <title>Business Data Analysis</title>
+    <style>
+        .influence-box {
+            background-color: #f5f5f5;
+            padding: 10px;
+            margin-top: 10px;
+            border-left: 4px solid #333;
+        }
+    </style>
 </head>
 <body>
+
 <h2>Upload Company Data</h2>
 
 <form action="/upload" method="post" enctype="multipart/form-data">
@@ -18,13 +27,39 @@
 
 {% for r in reports %}
     <h3>{{ r.metric }}</h3>
+
     <p><b>Trend:</b> {{ r.trend }}</p>
     <p><b>Change:</b> {{ r.change }}%</p>
     <p><b>Insight:</b> {{ r.insight }}</p>
     <p><b>Suggestion:</b> {{ r.suggestion }}</p>
+
     <img src="{{ r.plot }}" width="600">
+
+    {% if influences and r.metric in influences %}
+    <div class="influence-box">
+        <h4>Key Factors Affecting {{ r.metric }}</h4>
+        <ul>
+        {% for item in influences[r.metric] %}
+            <li>
+                <b>{{ item.factor }}</b>
+                (Influence Strength: {{ item.score }}) —
+                {% if item.impact > 0 %}
+                    increases
+                {% else %}
+                    decreases
+                {% endif %}
+                {{ r.metric }}
+                after {{ item.lag }} {{ time_unit }}
+
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
     <hr>
 {% endfor %}
 {% endif %}
+
 </body>
 </html>
