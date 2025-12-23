@@ -2,23 +2,31 @@ from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-
+from pathlib import Path
 import os
 
 from analysis import load_data, preprocess_data
 from insights import analyze_metric, generate_insight, improvement_suggestion
 from visualization import generate_plot
 
+# Define base directory and templates path using pathlib
+base_dir = Path(__file__).resolve().parent
+templates_dir = base_dir / "templates"
+
+# Print the directory path to ensure it's correct
+print(f"Looking for templates in: {templates_dir}")
+
+# Initialize FastAPI app
 app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+
+# Mount static files and templates
+templates = Jinja2Templates(directory=str(templates_dir))
 app.mount("/static", StaticFiles(directory="static"), name="static")
 os.makedirs("static/plots", exist_ok=True)
-
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
-
 
 @app.post("/upload", response_class=HTMLResponse)
 def upload_file(request: Request, file: UploadFile = File(...)):
