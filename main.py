@@ -2,31 +2,38 @@ from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+
 import os
 
 from analysis import load_data, preprocess_data
 from insights import analyze_metric, generate_insight, improvement_suggestion
 from visualization import generate_plot
+from forecasting import influence_analysis
 
-# Define base directory and templates path using pathlib
-base_dir = Path(__file__).resolve().parent
-templates_dir = base_dir / "templates"
-
-# Print the directory path to ensure it's correct
-print(f"Looking for templates in: {templates_dir}")
-
-# Initialize FastAPI app
 app = FastAPI()
-
-# Mount static files and templates
-templates = Jinja2Templates(directory=str(templates_dir))
+templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 os.makedirs("static/plots", exist_ok=True)
+
+def infer_time_unit(time_series):
+    sample = time_series.iloc[:3].astype(str).str.lower()
+
+    if any("jan" in v or "feb" in v for v in sample):
+        return "month"
+    if time_series.diff().median().days == 1:
+        return "day"
+    if time_series.diff().median().days >= 28:
+        return "month"
+    if time_series.diff().median().days >= 90:
+        return "quarter"
+
+    return "period"
+
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.post("/upload", response_class=HTMLResponse)
 def upload_file(request: Request, file: UploadFile = File(...)):
@@ -35,6 +42,7 @@ def upload_file(request: Request, file: UploadFile = File(...)):
 
     reports = []
 
+    
     for col in numeric_cols:
         series = df[col]
         trend, pct = analyze_metric(series)
@@ -54,7 +62,21 @@ def upload_file(request: Request, file: UploadFile = File(...)):
             "plot": "/" + plot_path
         })
 
+   
+    influence_reports = {}
+
+    for target in numeric_cols:
+        influences = influence_analysis(df[numeric_cols], target)
+        if influences:
+            influence_reports[target] = influences
+    print(influence_reports)
+    time_unit = infer_time_unit(df[time_col])
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "reports": reports}
+        {
+            "request": request,
+            "reports": reports,
+            "influences": influence_reports,  # OPTIONAL
+            "time_unit": time_unit
+        }
     )
